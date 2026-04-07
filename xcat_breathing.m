@@ -84,7 +84,7 @@ end
 num_iters = 30; 
 lambda = 0.005 / length(bin_angles); % higher is smoother
 alpha = 0.001; % step size / learning rate
-tv_iters = 5;
+tv_iters = 10;
 epsilon = 1e-6; % to avoid division by 0
 
 % halo at i=20, alpha = 0.1.
@@ -152,6 +152,9 @@ for b=1:bins
     title(['Bin ' num2str(b) ' (TV)']);
 end
 
+% combine iterative reconstruction
+
+
 %% 
 figure;
 plot(1:num_iters, all_residuals, '-o', 'LineWidth', 2);
@@ -161,3 +164,13 @@ ylabel('Relative Residual (Data Mismatch)');
 title('Convergence Plot of TV Reconstruction');
 legend_labels = arrayfun(@(x) sprintf('Bin %d', x), 1:bins, 'UniformOutput', false);
 legend(legend_labels);
+
+%% Future work
+
+% XD-GRASP - use correlation between different time frames
+% temporal TV
+% pixels between phases are correlated
+% temporal penalty term
+% grain / streaks is removed, keeping the anatomy correlated between frames
+% sharper
+% 3D reconstruction
