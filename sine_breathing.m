@@ -186,3 +186,99 @@ ylabel('Relative Residual (Data Mismatch)');
 title('Convergence Plot of TV Reconstruction');
 legend_labels = arrayfun(@(x) sprintf('Bin %d', x), 1:num_bins, 'UniformOutput', false);
 legend(legend_labels);
+
+%% TV Regularization 2
+
+% rudimentary denoising function just to test
+% update later
+
+function u = basic_tv_denoise(u, lambda, iters)
+    dt = 0.2; % stability step size
+    
+    for i = 1:iters
+        % fradients (forward differences)
+        [ux, uy] = gradient(u);
+        
+        % magnitude of gradient
+        mag = sqrt(ux.^2 + uy.^2 + 1e-6);
+        
+        % normalized gradient
+        nx = ux ./ mag;
+        ny = uy ./ mag;
+        
+        % divergence, where the noise it
+        [nxx, ~] = gradient(nx);
+        [~, nyy] = gradient(ny);
+        div = nxx + nyy;
+        
+        u = u + dt * lambda * div;
+    end
+end
+
+% parameters
+num_iterations = 20;
+lambda_tv = 0.005; % higher is more smoothed
+step_size = 0.1; % alpha, learning rate
+denoise_iterations = 5;
+
+reconstructed_bins_tv = zeros(N, N, bins);
+all_residuals = zeros(num_iterations, bins); % store error
+
+for b = 1:bins
+    % Extract spokes belonging to a specific respiratory phase
+    idx = (bin_indices == b);
+    bin_sinogram = sinogram(:, idx);
+    bin_angles = angles(idx);
+
+    % initial guess, with iradon
+    u = reconstructed_iradon(:,:,b);
+
+    local_step = step_size / length(bin_angles);
+
+    bin_norm = norm(bin_sinogram(:));
+    
+    for i = 1:num_iterations
+        % forward project current guess (radon space)
+        current_sinogram = radon(u, bin_angles);
+
+        if size(current_sinogram, 1) ~= size(bin_sinogram, 1)
+            error('Dimension mismatch, check scaling.');
+        end
+        error_sinogram = current_sinogram - bin_sinogram;
+
+        % monitor convergence
+        all_residuals(i, b) = norm(error_sinogram(:)) / bin_norm;
+
+        % object space
+        backproj_error = iradon(error_sinogram, bin_angles, 'none', 'Linear', 1, N);
+
+        % data fidelity
+        u = u - local_step * backproj_error;
+
+        % TV regularization
+        u = basic_tv_denoise(u, lambda_tv, denoise_iterations);
+
+        % should be non-negative
+        u(u<0) = 0;
+
+        fprintf('Bin %2.d, Iter %2.d, Max Value: %.2f\n', b, i, max(u(:)));
+    end
+
+    reconstructed_bins_tv(:,:,b) = u;
+end
+
+figure;
+for i=1:bins
+   subplot(1, bins, i);
+   imshow(reconstructed_bins_tv(:,:,i));
+   title(['Bin ' num2str(i) ' (TV)']);
+end
+
+figure;
+plot(1:num_iterations, all_residuals, '-o', 'LineWidth', 2);
+grid on;
+xlabel('Iteration Number');
+ylabel('Relative Residual (Data Mismatch)');
+title('Convergence Plot of TV Reconstruction');
+legend_labels = arrayfun(@(x) sprintf('Bin %d', x), 1:bins, 'UniformOutput', false);
+legend(legend_labels);
