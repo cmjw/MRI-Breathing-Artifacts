@@ -50,7 +50,7 @@ title(['Direct Reconstruction (' num2str(frames) ' frames, slice=' num2str(slice
 % for now I have simply divided the whole set of frames (100) into even
 % bins.
 
-bins = 10;
+bins = 20;
 
 % map each spoke to a phase, like in forward projection
 spoke_indices = 1:spokes;
@@ -73,8 +73,9 @@ for b = 1:bins
     title(['Bin ' num2str(b) ' (iradon)']);
 
     subplot(1,2,2);
-    f = floor((frames/b) / 2);
+    temp = ((b-1)*10 + 1) + floor((frames/bins)/2);
+    f = mod(temp, frames);
     imshow(data.data2(:,:,slice,f), []);
-    title('Averaged Ground Truth');
+    title('Approximate Ground Truth');
 end
 
