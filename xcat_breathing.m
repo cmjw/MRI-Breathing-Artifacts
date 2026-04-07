@@ -50,7 +50,7 @@ title(['Direct Reconstruction (' num2str(frames) ' frames, slice=' num2str(slice
 % for now I have simply divided the whole set of frames (100) into even
 % bins.
 
-bins = 20;
+bins = 10;
 
 % map each spoke to a phase, like in forward projection
 spoke_indices = 1:spokes;
@@ -68,10 +68,10 @@ for b = 1:bins
     bin_angles = angles(indices);
     reconstructed_iradon(:,:,b) = iradon(bin_sino, bin_angles, 'Linear', 'Ram-Lak', 1, N);
     
+    % display iradon vs GT
     figure; subplot(1,2,1);
     imshow(reconstructed_iradon(:,:,b), []);
     title(['Bin ' num2str(b) ' (iradon)']);
-
     subplot(1,2,2);
     temp = ((b-1)*10 + 1) + floor((frames/bins)/2);
     f = mod(temp, frames);
@@ -79,3 +79,64 @@ for b = 1:bins
     title('Approximate Ground Truth');
 end
 
+%% Total Variation (TV) Regularization
+
+num_iters = 20; % 20-halo
+lambda = 0.005; % higher is smoother
+alpha = 0.005; % step size / learning rate
+epsilon = 1e-6; % to avoid division by 0
+tv_iters = 5;
+
+% halo at i=20, alpha = 0.1.
+
+reconstructed_bins_tv = zeros(N, N, bins);
+all_residuals = zeros(num_iters, bins);
+
+for b=1:bins
+    % extract spokes from bin b
+    indices = (bin_indices == b);
+    bin_sinogram = sinogram(:, indices);
+    bin_angles = angles(indices);
+
+    % initial guess with iradon
+    x = reconstructed_iradon(:,:,b);
+    x(x<0) = 0; % constrain non-negative
+
+    bin_norm = norm(bin_sinogram(:));
+
+    % forward project current guess
+    for i=1:num_iters
+        current_sinogram = radon(x, bin_angles);
+
+        if size(current_sinogram, 1) ~= size(bin_sinogram, 1)
+            error('Sinogram dimension mismatch.');
+        end
+
+        % error in radon space
+        residual = current_sinogram - bin_sinogram;
+        all_residuals(i,b) = norm(residual(:)) / bin_norm;
+        
+        % backward project to image domain
+        backproj_error = iradon(residual, bin_angles, 'none', 'none', 1, N);
+
+        x = x - lambda * backproj_error;
+
+        % TV regularization / denoising
+        for t=1:tv_iters
+            [dfdx, dfdy] = gradient(x);
+
+            magnitude = sqrt(dfdx.^2 + dfdy.^2 + epsilon);
+
+            [d2fdx2, ~] = gradient(dfdx ./ magnitude);
+            [~, d2fdy2] = gradient(dfdy ./ magnitude);
+            tv_gradient = d2fdx2 + d2fdy2;
+
+            x = x - alpha * tv_gradient;
+        end
+
+        x(x<0) = 0; % constrain again
+    end
+    reconstructed_bins_tv(:,:,b) = x;
+    figure; imshow(reconstructed_bins_tv(:,:,b), []);
+    title(['Bin ' num2str(b) ' (TV)']);
+end
