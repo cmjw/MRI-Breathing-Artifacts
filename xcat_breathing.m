@@ -81,11 +81,11 @@ end
 
 %% Total Variation (TV) Regularization
 
-num_iters = 30; % 20-halo
+num_iters = 30; 
 lambda = 0.005 / length(bin_angles); % higher is smoother
-alpha = 0.05; % step size / learning rate
+alpha = 0.001; % step size / learning rate
+tv_iters = 5;
 epsilon = 1e-6; % to avoid division by 0
-tv_iters = 0;
 
 % halo at i=20, alpha = 0.1.
 
