@@ -1,47 +1,74 @@
+%% XCAT Breathing Phantom
+% We aim to use radial MRI sampling on a dynamic phantom that changes
+% as the patient breathes.
+% We use the binning method to reconstruct images at temporally close
+% breathing phases.
+% We will employ different reconstruction methods to eliminate streak 
+% artifacts, including iterative reconstruction and total variane
+% denoising / regularization.
+
 %% Load XCAT data
-data = load("data/sampling_300ms_compressed.mat");
+% The data can be accessed by: data[N, N, slice, sample]
+
+dataset = load("data/sampling_300ms_compressed.mat");
 whos
-disp(fieldnames(data)) 
-N = 400; % phantom dimensions are 400x400
-NUM_SLICES = 50; % slices per sample
-NUM_SAMPLES = 100; 
-% data.data2(:,:,slice,sample)
+data = dataset.data2;
 
-%% Radial MRI
-golden_angle = 111.246;
-frames = 100; % change later
+N = 400;
+SLICES = 50;
+SAMPLES = 100; 
+
+% (TODO: segment a single clean cycle)
+
+%% Forward Projection: Radial MRI
+% Golden angle
+
+% Constants
+% fs: sampling frequency (300ms)
+% frames: number of frames per cycle 
+% slice: 
+% tr: repetition time, time to acquire 1 spoke [s]
+% breaths: 
+GOLDEN_ANGLE = 111.246;
+fs = 0.3; % [s]
+tr = 0.004; % [s]
 slice = 10;
+frames = 50; % change later
+breaths = 1; 
 
-tr = 0.004; % repetition time: time to acquire 1 spoke [s]
-breaths = 2; 
-cycle_time = 5; % time for one breath cycle [s]
+% Variables
+% cycle_time: time for one breath
+% spokes: total number of spokes collected, depends on time for breathing
+% cycle
+cycle_time = frames * fs;
 spokes = (breaths * cycle_time) / tr; 
 
-% sample projection to obtain sinogram dimensions
+disp(['Simulation with frames=' num2str(frames) ', fs=' num2str(fs) ', slice=' num2str(slice) ', breaths=' num2str(breaths)]);
+disp(['tr=' num2str(tr) ' with spokes=' num2str(spokes)]);
+
+% take a sample projection to obtain sinogram dimensions
 sample_phantom = zeros(N,N);
 sample_projection = radon(sample_phantom, 0);
+sino_size = length(sample_projection); % size of sinogram
 
-% using radial MRI sampling
-angles = mod((0:spokes-1) * golden_angle, 180);
-sinogram = zeros(length(sample_projection), spokes);
+angles = mod((0:spokes-1) * GOLDEN_ANGLE, 180);
+sinogram = zeros(sino_size, spokes);
 
-% 1 spoke per phase, probably unrealistic
 for i=1:spokes
-    idx = 1 + floor(mod((i-1)*frames/(cycle_time/tr), ...
-        frames)); % 1-indexed
-    %disp(num2str(idx));
-    p = data.data2(:,:,slice,idx);
+    idx = 1 + floor(mod((i-1)*frames/(cycle_time/tr), frames)); % 1-indexed
+    %disp(['idx:' num2str(idx)]);
+    p = data(:,:,slice,idx); % phantom for current phase
     sino = radon(p, angles(i));
     sinogram(:,i) = sino;
 end
 
-%% Display iradon with no method to reconstruct
 figure; imagesc(sinogram); colormap("gray"); axis equal off;
 title('Sinogram');
 
-bad_recon = iradon(sinogram, angles, 'Linear', 'Ram-Lak', 1, N);
-figure; imshow(bad_recon, []); 
-title(['Direct Reconstruction (' num2str(frames) ' frames, slice=' num2str(slice) ')']);
+%% Backward Projection
+recon_bp = iradon(sinogram, angles, 'Linear', 'Ram-Lak', 1, N);
+figure; imshow(recon_bp, []); 
+title(['Backward Projection (' num2str(frames) ' frames, slice=' num2str(slice) ')']);
 
 %% Binning
 
