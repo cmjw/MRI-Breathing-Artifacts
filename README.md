@@ -12,6 +12,11 @@ A set of procedures to demonstrate MRI breathing artifact, binning, and reconstr
 - H5PY for .mat file processing
 - ASTRA toolbox
 
+## Code and Simulation
+The Jupyter Notebook "**xcat_breathing_recon.ipynb**" contains the main code for the project.
+
+The "MATLAB_code" directory contains MATLAB code from the beginning stage of the project when I approximated breathing as a Shepp-Logan phantom expanding along a sine wave.
+
 ## Data
 This program uses a sampled portion of the XCAT dataset (Segars et al. 2010) to simulate breathing motion.
 The XCAT dataset should be located at ./data/sampling_300ms_compressed.mat. (not included in this repository)
